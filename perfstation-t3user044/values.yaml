@@ -1,0 +1,25 @@
+global:
+  service:
+    influx: ps-influxdb-service
+    postgres: ps-postgres-service
+  image:
+    pscore: 505891794208.dkr.ecr.ap-northeast-2.amazonaws.com/perfstation/pscore:t3
+    influx: influxdb:1.8.3
+    postgres: postgres:14.4
+    psjmeter: 505891794208.dkr.ecr.ap-northeast-2.amazonaws.com/perfstation/psjmeter:v5.4.2
+  replicas:
+    psjmeter: 1
+  persistentVolumeClaim:
+    pscore: ps-core-pv-claim
+    influx: ps-influx-pv-claim
+    postgres: ps-postgres-pv-claim
+  storage:
+    influxSize: 10Gi
+    postgresSize: 10Gi
+  postgres:
+    db: ps
+    user: admin
+    password: admin
+  k8sapi:
+    url: <<YOUR_K8S_URL>>
+    token: <<YOUR_K8S_TOKEN>>

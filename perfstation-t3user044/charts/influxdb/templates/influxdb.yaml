@@ -1,0 +1,113 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: sc-influx
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ps-influx-pv
+spec:
+  capacity:
+    storage: {{ .Values.global.storage.influxSize }}
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: sc-influx
+  hostPath:
+    path: /data/influxdb
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ps-influx-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.global.storage.influxSize }}
+  storageClassName: sc-influx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ps-influxdb-config
+  labels:
+    app: ps-influxdb
+data:
+  influxdb.conf: |+
+    reporting-disabled = false
+    bind-address = "127.0.0.1:8088"
+    storage-directory = "/var/lib/influxdb"
+    [meta]
+      dir = "/var/lib/influxdb/meta"
+      retention-autocreate = true
+      logging-enabled = true
+    [data]
+      dir = "/var/lib/influxdb/data"
+      wal-dir = "/var/lib/influxdb/wal"
+      query-log-enabled = true
+      cache-max-memory-size = "5g"
+      cache-snapshot-memory-size = "1g"
+      max-series-per-database = 0
+      wal-fsync-delay = "100ms"
+      index-version = "tsi1"
+    [coordinator]
+      write-timeout = "10s"
+    [monitor]
+      store-enabled = true
+      store-database = "_internal"
+      store-interval = "10s"
+    [http]
+      enabled = true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ps-influxdb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ps-influxdb-server
+  template:
+    metadata:
+      labels:
+        app: ps-influxdb-server
+    spec:
+      containers:
+      - name: ps-influxdb
+        image: {{ .Values.global.image.influx }}
+        ports:
+        - containerPort: 8088
+        resources:
+          requests:
+            memory: "5Gi"
+            cpu: "1000m"
+          limits:
+            memory: "5Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - mountPath: "/var/lib/influxdb"
+          name: mypd
+        - mountPath: "/etc/influxdb"
+          name: config
+          readOnly: true
+      volumes:
+      - name: mypd
+        persistentVolumeClaim:
+          claimName: {{ .Values.global.persistentVolumeClaim.influx }}
+      - name: config
+        configMap:
+          name: ps-influxdb-config
+          items:
+          - key: "influxdb.conf"
+            path: "influxdb.conf"

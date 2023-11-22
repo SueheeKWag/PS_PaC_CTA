@@ -1,0 +1,80 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: sc-postgres
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ps-postgres-pv
+spec:
+  capacity:
+    storage: {{ .Values.global.storage.postgresSize }}
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: sc-postgres
+  hostPath:
+    path: /data/pgdata
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ps-postgres-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.global.storage.postgresSize }}
+  storageClassName: sc-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ps-postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ps-postgres-server
+  template:
+    metadata:
+      labels:
+        app: ps-postgres-server
+    spec:
+      containers:
+      - name: ps-postgres
+        image: {{ .Values.global.image.postgres }}
+        ports:
+        - containerPort: 5432
+        resources:
+          requests:
+            memory: "3Gi"
+            cpu: "1000m"
+          limits:
+            memory: "3Gi"
+            cpu: "1000m"
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.global.postgres.db }}
+        - name: POSTGRES_USER
+          value: {{ .Values.global.postgres.user }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.global.postgres.password }}
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - mountPath: "/var/lib/postgresql/data"
+          name: mypd
+      volumes:
+      - name: mypd
+        persistentVolumeClaim:
+          claimName: {{ .Values.global.persistentVolumeClaim.postgres }}

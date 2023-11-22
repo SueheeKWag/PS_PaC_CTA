@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ps-core
+  name: ps-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ps-core
+  template:
+    metadata:
+      labels:
+        app: ps-core
+    spec:
+      containers:
+      - image: {{ .Values.global.image.pscore }}
+        imagePullPolicy: Always
+        name: ps-core-standard
+        resources:
+          requests:
+            memory: "5Gi"
+            cpu: "2000m"
+          limits:
+            memory: "5Gi"
+            cpu: "2000m"
+        env:
+        - name: INFLUXDB_SERVICE
+          value: {{ .Values.global.service.influx }}
+        - name: POSTGRES_SERVICE
+          value: {{ .Values.global.service.postgres }}
+        - name: POSTGRES_DB
+          value: {{ .Values.global.postgres.db }}
+        - name: POSTGRES_USER
+          value: {{ .Values.global.postgres.user }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.global.postgres.password }}
+        - name: KUBERNETES_API_URL
+          value: {{ .Values.global.k8sapi.url }}
+        - name: KUBERNETES_API_TOKEN
+          value: {{ .Values.global.k8sapi.token }}
+
